@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SplitStudent - Gastos Compartidos</title>
+    
+    <!-- Ionic Core CSS & JS -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script>
+    <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
+    
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <ion-app>
+        <!-- PANTALLA DE INICIO DE SESIÓN Y REGISTRO -->
+        <div class="ion-page" id="vista-login">
+            <ion-content class="ion-padding">
+                <div style="max-width: 420px; margin: 32px auto;">
+                    <ion-card class="resumen-card ion-text-center">
+                        <ion-card-content>
+                            <ion-icon name="wallet-outline" color="secondary" style="font-size: 48px;"></ion-icon>
+                            <h1 style="margin: 8px 0 4px 0; font-weight: 800;">SplitStudent</h1>
+                            <p style="color: #64748b; margin: 0;">Gestiona y divide tus gastos compartidos</p>
+                        </ion-card-content>
+                    </ion-card>
+
+                    <ion-card class="card-grupo">
+                        <ion-card-content>
+                            <!-- Formulario Iniciar Sesión -->
+                            <form id="form-login">
+                                <h3 style="margin-top:0; font-weight:700;">Iniciar Sesión</h3>
+                                <ion-item>
+                                    <ion-label position="stacked">Correo electrónico *</ion-label>
+                                    <ion-input id="login-correo" type="email" placeholder="usuario@correo.com"></ion-input>
+                                </ion-item>
+                                <ion-item>
+                                    <ion-label position="stacked">Contraseña *</ion-label>
+                                    <ion-input id="login-password" type="password" placeholder="••••••••"></ion-input>
+                                </ion-item>
+                                <ion-button expand="block" type="submit" color="primary" class="ion-margin-top">
+                                    Entrar
+                                </ion-button>
+                                <ion-button expand="block" fill="clear" size="small" type="button" id="btn-ir-registro" class="ion-margin-top">
+                                    ¿No tienes cuenta? Regístrate aquí
+                                </ion-button>
+                            </form>
+
+                            <!-- Formulario Registro Rápido -->
+                            <form id="form-registro" class="oculto">
+                                <h3 style="margin-top:0; font-weight:700;">Crear Cuenta Rápida</h3>
+                                <ion-item>
+                                    <ion-label position="stacked">Nombre de usuario *</ion-label>
+                                    <ion-input id="reg-nombre" type="text" placeholder="Ej. Pedro"></ion-input>
+                                </ion-item>
+                                <ion-item>
+                                    <ion-label position="stacked">Correo electrónico *</ion-label>
+                                    <ion-input id="reg-correo" type="email" placeholder="pedro@correo.com"></ion-input>
+                                </ion-item>
+                                <ion-item>
+                                    <ion-label position="stacked">Contraseña *</ion-label>
+                                    <ion-input id="reg-password" type="password" placeholder="Crea una contraseña"></ion-input>
+                                </ion-item>
+                                <ion-button expand="block" type="submit" color="secondary" class="ion-margin-top">
+                                    Registrarme y Entrar
+                                </ion-button>
+                                <ion-button expand="block" fill="clear" size="small" type="button" id="btn-ir-login" class="ion-margin-top">
+                                    Ya tengo cuenta, iniciar sesión
+                                </ion-button>
+                            </form>
+
+                            <div class="ion-margin-top ion-text-center">
+                                <p style="font-size: 0.8rem; color: #64748b;">Acceso rápido de prueba (Demostración):</p>
+                                <ion-button size="small" fill="outline" onclick="autocompletarLogin('nathan@ejemplo.edu.mx')">Nathan</ion-button>
+                                <ion-button size="small" fill="outline" onclick="autocompletarLogin('luis@ejemplo.edu.mx')">Luis</ion-button>
+                                <ion-button size="small" fill="outline" onclick="autocompletarLogin('ana@ejemplo.edu.mx')">Ana</ion-button>
+                            </div>
+                        </ion-card-content>
+                    </ion-card>
+                </div>
+            </ion-content>
+        </div>
+        <!-- SplitPane: menú fijo en PC/Tableta, colapsable en Celular -->
+        <ion-split-pane content-id="main-content" when="md" class="oculto" id="contenedor-app">
+            
+            <!-- Menú Lateral -->
+            <ion-menu content-id="main-content" type="overlay">
+                <ion-header class="ion-no-border">
+                    <ion-toolbar>
+                        <ion-title>
+                            <ion-icon name="wallet-outline" color="secondary" style="vertical-align: middle; margin-right: 6px;"></ion-icon>
+                            SplitStudent
+                        </ion-title>
+                    </ion-toolbar>
+                </ion-header>
+                <ion-content>
+                    <ion-list id="menu-navegacion">
+                        <ion-menu-toggle auto-hide="false">
+                            <ion-item button data-vista="vista-grupos" class="nav-item active">
+                                <ion-icon slot="start" name="people-outline"></ion-icon>
+                                <ion-label>Mis Grupos</ion-label>
+                            </ion-item>
+                            <ion-item button data-vista="vista-gastos" class="nav-item">
+                                <ion-icon slot="start" name="receipt-outline"></ion-icon>
+                                <ion-label>Gastos y Saldos</ion-label>
+                            </ion-item>
+                            <ion-item button id="btn-cerrar-sesion" class="nav-item">
+                                <ion-icon slot="start" name="log-out-outline" color="danger"></ion-icon>
+                                <ion-label color="danger">Cerrar Sesión</ion-label>
+                            </ion-item>
+                        </ion-menu-toggle>
+                    </ion-list>
+                </ion-content>
+            </ion-menu>
+
+            <!-- Contenido Principal -->
+            <div class="ion-page" id="main-content">
+                <ion-header class="ion-no-border">
+                    <ion-toolbar>
+                        <ion-buttons slot="start">
+                            <ion-menu-button></ion-menu-button>
+                        </ion-buttons>
+                        <ion-title id="titulo-vista">Mis Grupos</ion-title>
+                        <ion-buttons slot="end">
+                            <ion-button id="btn-privacidad" fill="clear" color="primary" title="Modo Privacidad">
+                                <ion-icon slot="icon-only" id="icono-privacidad" name="eye-outline"></ion-icon>
+                            </ion-button>
+                        </ion-buttons>
+                    </ion-toolbar>
+                </ion-header>
+
+                <ion-content class="ion-padding">
+                    <!-- Tarjeta Resumen Global -->
+                    <ion-card class="resumen-card">
+                        <ion-card-content>
+                            <div class="resumen-flex">
+                                <div>
+                                    <p class="subtitulo-resumen">Gasto Total Acumulado</p>
+                                    <h2 id="total-general" class="monto-sensible">$0.00</h2>
+                                </div>
+                                <ion-badge color="light" id="badge-modo-privacidad">Visible</ion-badge>
+                            </div>
+                        </ion-card-content>
+                    </ion-card>
+
+                    <!-- VISTA 1: MIS GRUPOS Y GRUPOS COMO INVITADO -->
+                    <section id="vista-grupos" class="vista-seccion">
+                        <div class="seccion-header" style="flex-wrap: wrap; gap: 8px;">
+                            <h3>Mis Grupos (Administrador)</h3>
+                            <div>
+                                <ion-button size="small" fill="outline" color="secondary" id="btn-abrir-modal-unirse">
+                                    <ion-icon slot="start" name="key-outline"></ion-icon>
+                                    Unirme con Código
+                                </ion-button>
+                                <ion-button size="small" id="btn-abrir-modal-grupo">
+                                    <ion-icon slot="start" name="add-circle-outline"></ion-icon>
+                                    Nuevo Grupo
+                                </ion-button>
+                            </div>
+                        </div>
+                        <ion-grid>
+                            <ion-row id="contenedor-mis-grupos"></ion-row>
+                        </ion-grid>
+
+                        <div class="seccion-header ion-margin-top">
+                            <h3>Grupos donde soy Integrante</h3>
+                        </div>
+                        <ion-grid>
+                            <ion-row id="contenedor-grupos-invitado"></ion-row>
+                        </ion-grid>
+                    </section>
+
+                    <!-- VISTA 2: GASTOS Y SALDOS -->
+                    <section id="vista-gastos" class="vista-seccion oculto">
+                        <div class="seccion-header">
+                            <h3 id="subtitulo-grupo-actual">Todos los Gastos</h3>
+                            <ion-select id="filtro-grupo" interface="popover" placeholder="Filtrar grupo"></ion-select>
+                        </div>
+                        
+                        <!-- Resumen de división por integrante -->
+                        <ion-card>
+                            <ion-card-header style="display:flex; justify-content:space-between; align-items:center;">
+                            <ion-card-subtitle>Balance "¿Quién debe a quién?"</ion-card-subtitle>
+                            <ion-button size="small" color="secondary" id="btn-abrir-modal-abono">
+                                <ion-icon slot="start" name="cash-outline"></ion-icon>
+                                Registrar Abono
+                            </ion-button>
+                        </ion-card-header>
+                            <ion-card-content id="contenedor-balances"></ion-card-content>
+                        </ion-card>
+
+                        <ion-grid>
+                            <ion-row id="contenedor-gastos"></ion-row>
+                        </ion-grid>
+                    </section>
+
+                    <!-- Botón Flotante para Nuevo Gasto -->
+                    <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+                        <ion-fab-button id="btn-abrir-modal-gasto" color="primary">
+                            <ion-icon name="add"></ion-icon>
+                        </ion-fab-button>
+                    </ion-fab>
+                </ion-content>
+            </div>
+        </ion-split-pane>
+
+        <!-- MODAL: REGISTRAR / EDITAR GASTO -->
+        <ion-modal id="modal-gasto">
+            <ion-header>
+                <ion-toolbar color="primary">
+                    <ion-title id="titulo-modal-gasto">Registrar Gasto</ion-title>
+                    <ion-buttons slot="end">
+                        <ion-button id="btn-cerrar-modal-gasto">Cerrar</ion-button>
+                    </ion-buttons>
+                </ion-toolbar>
+            </ion-header>
+            <ion-content class="ion-padding">
+                <form id="form-gasto">
+                    <input type="hidden" id="gasto-id">
+                    
+                    <ion-item>
+                        <ion-label position="stacked">Grupo *</ion-label>
+                        <ion-select id="gasto-grupo" placeholder="Selecciona un grupo"></ion-select>
+                    </ion-item>
+
+                    <ion-item>
+                        <ion-label position="stacked">Concepto del gasto *</ion-label>
+                        <ion-input id="gasto-concepto" type="text" placeholder="Ej. Copias del proyecto"></ion-input>
+                    </ion-item>
+
+                    <ion-item>
+                        <ion-label position="stacked">Monto total ($ MXN) *</ion-label>
+                        <ion-input id="gasto-monto" type="number" step="0.01" placeholder="0.00"></ion-input>
+                    </ion-item>
+
+                    <ion-item>
+                        <ion-label position="stacked">Pagado por *</ion-label>
+                        <ion-input id="gasto-pagador" type="text" placeholder="Nombre de quien pagó"></ion-input>
+                    </ion-item>
+
+                    <div class="ion-padding-top">
+                        <div class="ion-padding-vertical">
+                        <ion-button expand="block" fill="outline" color="secondary" type="button" id="btn-tomar-foto">
+                            <ion-icon slot="start" name="camera-outline"></ion-icon>
+                            Adjuntar Foto del Ticket
+                        </ion-button>
+                        <div id="contenedor-preview-ticket" class="oculto ion-margin-top ion-text-center">
+                            <img id="img-preview-ticket" src="" alt="Comprobante" style="max-height: 160px; border-radius: 14px; border: 1px solid #e2e8f0;">
+                            <p style="font-size: 0.8rem; color: #64748b;">Comprobante listo para guardar</p>
+                        </div>
+                    </div>
+                        <ion-button expand="block" type="submit" color="primary">
+                            Guardar Gasto
+                        </ion-button>
+                    </div>
+                </form>
+            </ion-content>
+        </ion-modal>
+
+        <!-- MODAL: CREAR GRUPO -->
+        <ion-modal id="modal-grupo">
+            <ion-header>
+                <ion-toolbar color="primary">
+                    <ion-title>Nuevo Grupo</ion-title>
+                    <ion-buttons slot="end">
+                        <ion-button id="btn-cerrar-modal-grupo">Cerrar</ion-button>
+                    </ion-buttons>
+                </ion-toolbar>
+            </ion-header>
+            <ion-content class="ion-padding">
+                <form id="form-grupo">
+                    <ion-item>
+                        <ion-label position="stacked">Nombre del grupo *</ion-label>
+                        <ion-input id="grupo-nombre" type="text" placeholder="Ej. Equipo Desarrollo Móvil"></ion-input>
+                    </ion-item>
+                    <ion-item>
+                        <ion-label position="stacked">Descripción</ion-label>
+                        <ion-input id="grupo-descripcion" type="text" placeholder="Breve descripción"></ion-input>
+                    </ion-item>
+                    <ion-item>
+                        <ion-label position="stacked">Integrantes (separados por coma) *</ion-label>
+                        <ion-input id="grupo-miembros" type="text" placeholder="Nathan, Ana, Luis"></ion-input>
+                    </ion-item>
+                    <div class="ion-padding-top">
+                        <ion-button expand="block" type="submit" color="primary">
+                            Crear Grupo
+                        </ion-button>
+                    </div>
+                </form>
+            </ion-content>
+        </ion-modal>
+        <!-- MODAL: REGISTRAR ABONO / LIQUIDAR DEUDA -->
+        <ion-modal id="modal-abono">
+            <ion-header>
+                <ion-toolbar color="primary">
+                    <ion-title>Registrar Abono</ion-title>
+                    <ion-buttons slot="end">
+                        <ion-button id="btn-cerrar-modal-abono">Cerrar</ion-button>
+                    </ion-buttons>
+                </ion-toolbar>
+            </ion-header>
+            <ion-content class="ion-padding">
+                <form id="form-abono">
+                    <ion-item>
+                        <ion-label position="stacked">Grupo *</ion-label>
+                        <ion-select id="abono-grupo" placeholder="Selecciona el grupo"></ion-select>
+                    </ion-item>
+                    <ion-item>
+                        <ion-label position="stacked">¿Quién entrega el dinero? *</ion-label>
+                        <ion-input id="abono-pagador" type="text" readonly></ion-input>
+                    </ion-item>
+                    <ion-item>
+                        <ion-label position="stacked">¿A quién le paga? *</ion-label>
+                        <ion-select id="abono-receptor" placeholder="Selecciona a quién le debes"></ion-select>
+                    </ion-item>
+
+                    <!-- Aviso dinámico del saldo exacto pendiente con esa persona -->
+                    <div id="info-deuda-exacta" class="ion-padding-vertical" style="font-size: 0.9rem; color: #0369a1; font-weight: 600;">
+                        Selecciona el grupo y la persona para ver cuánto le debes exactamente.
+                    </div>
+
+                    <ion-item>
+                        <ion-label position="stacked">Monto abonado ($ MXN) *</ion-label>
+                        <ion-input id="abono-monto" type="number" step="0.01" placeholder="0.00"></ion-input>
+                    </ion-item>
+                    <div class="ion-padding-top">
+                        <ion-button expand="block" type="submit" color="primary">
+                            Confirmar Pago
+                        </ion-button>
+                    </div>
+                </form>
+            </ion-content>
+        </ion-modal>
+        <!-- MODAL: UNIRSE A GRUPO POR CÓDIGO -->
+        <ion-modal id="modal-unirse">
+            <ion-header>
+                <ion-toolbar color="primary">
+                    <ion-title>Unirme a un Grupo</ion-title>
+                    <ion-buttons slot="end">
+                        <ion-button id="btn-cerrar-modal-unirse">Cerrar</ion-button>
+                    </ion-buttons>
+                </ion-toolbar>
+            </ion-header>
+            <ion-content class="ion-padding">
+                <form id="form-unirse">
+                    <p style="color:#64748b; font-size:0.9rem;">
+                        Pide al administrador del grupo su código de 6 caracteres para integrarte automáticamente a la división de gastos.
+                    </p>
+                    <ion-item>
+                        <ion-label position="stacked">Código de invitación *</ion-label>
+                        <ion-input id="unirse-codigo" type="text" maxlength="8" placeholder="Ej. A7K9P2" style="text-transform: uppercase; font-weight: 700; letter-spacing: 2px;"></ion-input>
+                    </ion-item>
+                    <div class="ion-padding-top">
+                        <ion-button expand="block" type="submit" color="secondary">
+                            Unirme al Grupo
+                        </ion-button>
+                    </div>
+                </form>
+            </ion-content>
+        </ion-modal>
+    </ion-app>
+
+    <!-- Cordova.js (se inyecta automáticamente al compilar APK) -->
+    <script src="cordova.js"></script>
+    <script src="js/models/Usuario.js"></script>
+    <script src="js/models/Gasto.js"></script>
+    <script src="js/services/StorageService.js"></script>
+    <script src="js/services/ApiService.js"></script>
+    <script src="js/sensors/HardwareManager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

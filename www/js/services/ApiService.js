@@ -1,6 +1,5 @@
 class ApiService {
-    // Usa localhost en PC; al probar en celular físico cambia por la IP local de tu PC (ej. http://192.168.1.75:3000/api)
-    static BASE_URL = 'http://192.168.1.132:3000/api';
+    static BASE_URL = 'https://split-student.onrender.com/api';
 
     static registrarUsuario(nombre, correo, password) {
         return this.peticion('/registro', {

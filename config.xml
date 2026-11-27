@@ -14,6 +14,7 @@
         <application android:usesCleartextTraffic="true" />
     </edit-config>
 </platform>
+    <access origin="*" />
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
 </widget>

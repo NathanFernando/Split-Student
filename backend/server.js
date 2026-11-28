@@ -93,7 +93,6 @@ function generarCodigoInvitacion(longitud = 6) {
     return codigo;
 }
 
-// POST: Unirse a un grupo mediante código de invitación
 app.post('/api/grupos', async (req, res) => {
     const { nombre, descripcion, id_creador, miembros_nombres } = req.body;
 
@@ -108,7 +107,6 @@ app.post('/api/grupos', async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // Verifica que el creador exista en usuarios
         const [creadores] = await connection.query(
             'SELECT id_usuario FROM usuarios WHERE id_usuario = ? LIMIT 1',
             [id_creador]
@@ -129,14 +127,11 @@ app.post('/api/grupos', async (req, res) => {
 
         const idGrupo = resGrupo.insertId;
 
-        // Registra al creador como administrador del grupo
         await connection.query(
             'INSERT INTO miembros_grupo (id_grupo, id_usuario, rol) VALUES (?, ?, ?)',
             [idGrupo, id_creador, 'admin']
         );
 
-        // Si se enviaron nombres adicionales, agrega únicamente a usuarios ya registrados
-        const omitidos = [];
         if (Array.isArray(miembros_nombres) && miembros_nombres.length > 0) {
             for (const rawNombre of miembros_nombres) {
                 const nombreLimpio = String(rawNombre || '').trim();
@@ -146,11 +141,7 @@ app.post('/api/grupos', async (req, res) => {
                     'SELECT id_usuario FROM usuarios WHERE LOWER(nombre) = LOWER(?) LIMIT 1',
                     [nombreLimpio]
                 );
-
-                if (usuariosExistentes.length === 0) {
-                    omitidos.push(nombreLimpio);
-                    continue;
-                }
+                if (usuariosExistentes.length === 0) continue;
 
                 const idUsuarioMiembro = usuariosExistentes[0].id_usuario;
                 await connection.query(
@@ -169,8 +160,7 @@ app.post('/api/grupos', async (req, res) => {
             ok: true,
             mensaje: 'Grupo creado correctamente.',
             id_grupo: idGrupo,
-            codigo_invitacion: codigo,
-            usuarios_no_encontrados: omitidos
+            codigo_invitacion: codigo
         });
     } catch (error) {
         await connection.rollback();

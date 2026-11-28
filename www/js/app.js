@@ -192,24 +192,18 @@ function calcularLiquidacionesExactas(grupo) {
 }
 
 
-async function sincronizarDatosConServidor() {
+async function sincronizarDatosConServidor(silencioso = false) {
     if (!usuarioSesion) return;
     try {
         const [resGrupos, resGastos] = await Promise.all([
             ApiService.obtenerGrupos(usuarioSesion.id_usuario),
-            ApiService.obtenerGastos()
+            ApiService.obtenerGastos(usuarioSesion.id_usuario)
         ]);
         grupos = resGrupos.data;
         gastos = resGastos.data.map(g => {
             const instancia = new Gasto(
-                g.id,
-                g.grupoId,
-                g.concepto,
-                g.monto,
-                g.pagadoPor,
-                g.fecha,
-                g.fotoTicket,
-                g.liquidado
+                g.id, g.grupoId, g.concepto, g.monto,
+                g.pagadoPor, g.fecha, g.fotoTicket, g.liquidado
             );
             instancia.tipo = g.tipo || 'gasto';
             instancia.receptor = g.receptor || null;
@@ -218,10 +212,16 @@ async function sincronizarDatosConServidor() {
         StorageService.guardarGrupos(grupos);
         StorageService.guardarGastos(gastos);
     } catch (error) {
+        if (silencioso) return; // conserva lo que ya está en pantalla
         grupos = StorageService.obtenerGrupos();
         gastos = StorageService.obtenerGastos();
         mostrarToast('Modo sin conexión: mostrando respaldo local.', 'warning');
     }
+}
+
+// Sincroniza sin bloquear la pantalla; cuando termina, redibuja con los datos reales
+function sincronizarEnSegundoPlano() {
+    sincronizarDatosConServidor(true).then(renderizarTodo);
 }
 
 // --- NAVEGACIÓN ENTRE VISTAS ---
@@ -401,16 +401,25 @@ function configurarModalesYFormularios() {
             miembros.unshift(usuarioSesion.nombre);
         }
 
-        try {
-            await ApiService.crearGrupo({
+                try {
+            const res = await ApiService.crearGrupo({
                 nombre,
                 descripcion: descripcion || 'Grupo de gastos compartidos',
                 id_creador: usuarioSesion.id_usuario,
                 miembros_nombres: miembros
             });
+            grupos.unshift({
+                id: res.id_grupo,
+                nombre,
+                descripcion: descripcion || 'Grupo de gastos compartidos',
+                codigo: res.codigo_invitacion,
+                creador: usuarioSesion.nombre,
+                rol: 'admin',
+                miembros
+            });
             modalGrupo.dismiss();
-            await sincronizarDatosConServidor();
             renderizarTodo();
+            sincronizarEnSegundoPlano();
             mostrarToast('Grupo creado. ¡Comparte el código para invitar!', 'success');
         } catch (error) {
             mostrarToast(error.message, 'danger');
@@ -431,12 +440,14 @@ function configurarModalesYFormularios() {
             return;
         }
 
-        try {
+                try {
             if (idExistente) {
                 await ApiService.editarGasto(idExistente, { grupoId, concepto, monto, pagadoPor });
+                const g = gastos.find(x => x.id === parseInt(idExistente));
+                if (g) { g.grupoId = grupoId; g.concepto = concepto; g.monto = monto; g.pagadoPor = pagadoPor; }
                 mostrarToast('Gasto actualizado correctamente.', 'success');
             } else {
-                await ApiService.crearGasto({
+                const res = await ApiService.crearGasto({
                     grupoId,
                     tipo: 'gasto',
                     concepto,
@@ -444,14 +455,18 @@ function configurarModalesYFormularios() {
                     pagadoPor,
                     fotoTicket: fotoTicketActual
                 });
+                const nuevo = new Gasto(res.id_gasto, grupoId, concepto, monto, pagadoPor, null, fotoTicketActual, false);
+                nuevo.tipo = 'gasto';
+                nuevo.receptor = null;
+                gastos.unshift(nuevo);
                 mostrarToast('Gasto registrado en el grupo.', 'success');
             }
 
             fotoTicketActual = null;
             document.getElementById('contenedor-preview-ticket').classList.add('oculto');
             modalGasto.dismiss();
-            await sincronizarDatosConServidor();
             renderizarTodo();
+            sincronizarEnSegundoPlano();
         } catch (error) {
             mostrarToast(error.message, 'danger');
         }
@@ -475,8 +490,8 @@ function configurarModalesYFormularios() {
             return;
         }
 
-        try {
-            await ApiService.crearGasto({
+                try {
+            const res = await ApiService.crearGasto({
                 grupoId,
                 tipo: 'abono',
                 concepto: `Abono de ${pagadoPor} a ${receptor}`,
@@ -484,9 +499,14 @@ function configurarModalesYFormularios() {
                 pagadoPor,
                 receptor
             });
+            const nuevo = new Gasto(res.id_gasto, grupoId, `Abono de ${pagadoPor} a ${receptor}`, monto, pagadoPor, null, null, false);
+            nuevo.tipo = 'abono';
+            nuevo.receptor = receptor;
+            gastos.unshift(nuevo);
+
             modalAbono.dismiss();
-            await sincronizarDatosConServidor();
             renderizarTodo();
+            sincronizarEnSegundoPlano();
             mostrarToast('Abono registrado y saldo actualizado.', 'success');
         } catch (error) {
             mostrarToast(error.message, 'danger');
@@ -559,11 +579,12 @@ async function eliminarGasto(id) {
         {
             text: 'Eliminar',
             role: 'destructive',
-            handler: async () => {
+                        handler: async () => {
                 try {
                     await ApiService.eliminarGasto(id, usuarioSesion.id_usuario);
-                    await sincronizarDatosConServidor();
+                    gastos = gastos.filter(g => g.id !== id);
                     renderizarTodo();
+                    sincronizarEnSegundoPlano();
                     mostrarToast('Registro eliminado.', 'medium');
                 } catch (error) {
                     mostrarToast(error.message, 'danger');
@@ -578,8 +599,10 @@ async function eliminarGasto(id) {
 async function alternarLiquidado(id) {
     try {
         await ApiService.alternarLiquidado(id);
-        await sincronizarDatosConServidor();
+        const g = gastos.find(x => x.id === id);
+        if (g) g.liquidado = !g.liquidado;
         renderizarTodo();
+        sincronizarEnSegundoPlano();
         mostrarToast('Estado de liquidación actualizado.', 'success');
     } catch (error) {
         mostrarToast(error.message, 'danger');

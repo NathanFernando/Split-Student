@@ -42,8 +42,8 @@ class ApiService {
         return this.peticion(`/grupos/${idGrupo}/${usuarioId}`, { method: 'DELETE' });
     }
 
-    static obtenerGastos() {
-        return this.peticion('/gastos');
+        static obtenerGastos(usuarioId) {
+        return this.peticion(`/gastos?usuarioId=${usuarioId}`);
     }
 
     static crearGasto(payload) {

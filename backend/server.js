@@ -25,18 +25,22 @@ app.get('/api/grupos/:usuarioId', async (req, res) => {
             ORDER BY g.id_grupo DESC
         `, [usuarioId]);
 
-        for (let grupo of grupos) {
+        if (grupos.length > 0) {
+            const ids = grupos.map(g => g.id);
             const [miembros] = await pool.query(`
-                SELECT u.id_usuario, u.nombre
+                SELECT mg.id_grupo, u.nombre
                 FROM miembros_grupo mg
                 INNER JOIN usuarios u ON mg.id_usuario = u.id_usuario
-                WHERE mg.id_grupo = ?
-            `, [grupo.id]);
-            grupo.miembros = miembros.map(m => m.nombre);
+                WHERE mg.id_grupo IN (?)
+            `, [ids]);
+            for (const grupo of grupos) {
+                grupo.miembros = miembros.filter(m => m.id_grupo === grupo.id).map(m => m.nombre);
+            }
         }
 
         res.json({ ok: true, data: grupos });
     } catch (error) {
+        console.error('Error al consultar grupos:', error);
         res.status(500).json({ ok: false, mensaje: 'Error al consultar grupos', error: error.message });
     }
 });
@@ -219,21 +223,32 @@ app.delete('/api/grupos/:idGrupo/:usuarioId', async (req, res) => {
 // GET: Consultar todos los gastos y abonos
 app.get('/api/gastos', async (req, res) => {
     try {
+        const { usuarioId } = req.query;
+        const params = [];
+        let filtroUsuario = '';
+        if (usuarioId) {
+            filtroUsuario = 'INNER JOIN miembros_grupo mg ON mg.id_grupo = g.id_grupo AND mg.id_usuario = ?';
+            params.push(usuarioId);
+        }
+
         const [rows] = await pool.query(`
             SELECT g.id_gasto AS id, g.id_grupo AS grupoId, g.tipo, g.concepto, g.monto,
                    u.nombre AS pagadoPor, r.nombre AS receptor,
                    DATE_FORMAT(g.fecha_gasto, '%Y-%m-%d') AS fecha,
                    g.foto_ticket AS fotoTicket, g.liquidado
             FROM gastos g
+            ${filtroUsuario}
             INNER JOIN usuarios u ON g.id_pagador = u.id_usuario
             LEFT JOIN usuarios r ON g.id_receptor = r.id_usuario
             ORDER BY g.id_gasto DESC
-        `);
+        `, params);
+
         res.json({
             ok: true,
             data: rows.map(r => ({ ...r, monto: parseFloat(r.monto), liquidado: Boolean(r.liquidado) }))
         });
     } catch (error) {
+        console.error('Error al consultar gastos:', error);
         res.status(500).json({ ok: false, mensaje: 'Error al consultar gastos', error: error.message });
     }
 });

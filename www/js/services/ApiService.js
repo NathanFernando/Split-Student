@@ -20,8 +20,9 @@ class ApiService {
             });
             const datos = await respuesta.json();
             if (!respuesta.ok) {
-                throw new Error(datos.mensaje || 'Error en la comunicación con el servidor');
-            }
+    const detalle = datos.error ? ` (${datos.error})` : '';
+    throw new Error((datos.mensaje || 'Error en la comunicación con el servidor') + detalle);
+}
             return datos;
         } catch (error) {
             console.error(`Error API [${endpoint}]:`, error);

@@ -41,49 +41,6 @@ app.get('/api/grupos/:usuarioId', async (req, res) => {
     }
 });
 
-// POST: Registrar un nuevo grupo
-app.post('/api/grupos', async (req, res) => {
-    const conn = await pool.getConnection();
-    try {
-        const codigoGenerado = Math.random().toString(36).substring(2, 8).toUpperCase();
-        if (!nombre || !id_creador || !Array.isArray(miembros_nombres) || miembros_nombres.length < 1) {
-            return res.status(400).json({ ok: false, mensaje: 'Datos incompletos o menos de 1 integrantes.' });
-        }
-
-        await conn.beginTransaction();
-        const [resGrupo] = await conn.query(
-            'INSERT INTO grupos (nombre_grupo, descripcion, codigo_invitacion, id_creador) VALUES (?, ?, ?, ?)',
-            [nombre, descripcion || 'Grupo compartido', codigoGenerado, id_creador]
-        );
-        const nuevoGrupoId = resGrupo.insertId;
-
-        for (const nombreMiembro of miembros_nombres) {
-            const [users] = await conn.query('SELECT id_usuario FROM usuarios WHERE LOWER(nombre) = LOWER(?)', [nombreMiembro.trim()]);
-            let uid;
-            if (users.length > 0) {
-                uid = users[0].id_usuario;
-            } else {
-                const correoTemp = `${nombreMiembro.trim().toLowerCase().replace(/\s+/g, '')}_${Date.now()}@splitstudent.local`;
-                const [newU] = await conn.query(
-                    'INSERT INTO usuarios (nombre, correo, password_hash) VALUES (?, ?, ?)',
-                    [nombreMiembro.trim(), correoTemp, 'invitado_local']
-                );
-                uid = newU.insertId;
-            }
-            const rol = (uid === parseInt(id_creador)) ? 'admin' : 'invitado';
-            await conn.query('INSERT IGNORE INTO miembros_grupo (id_grupo, id_usuario, rol) VALUES (?, ?, ?)', [nuevoGrupoId, uid, rol]);
-        }
-
-        await conn.commit();
-        res.status(201).json({ ok: true, id_grupo: nuevoGrupoId, mensaje: 'Grupo creado en SQL.' });
-    } catch (error) {
-        await conn.rollback();
-        res.status(500).json({ ok: false, mensaje: 'Error al crear grupo', error: error.message });
-    } finally {
-        conn.release();
-    }
-});
-
 // ==========================================
 // Generador de código de invitación
 // ==========================================
@@ -108,7 +65,6 @@ app.post('/api/grupos', async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        // Verificar que el creador exista
         const [creadores] = await conn.query(
             'SELECT id_usuario FROM usuarios WHERE id_usuario = ? LIMIT 1',
             [id_creador]
@@ -178,7 +134,7 @@ app.post('/api/grupos', async (req, res) => {
             codigo_invitacion: codigo
         });
     } catch (error) {
-        console.error('Error al crear grupo:', error); 
+        console.error('Error al crear grupo:', error);
         await conn.rollback();
         res.status(500).json({ ok: false, mensaje: 'Error al crear grupo', error: error.message });
     } finally {
@@ -216,6 +172,7 @@ app.post('/api/grupos/unirse', async (req, res) => {
         );
         res.json({ ok: true, mensaje: `Te uniste al grupo "${grupos[0].nombre_grupo}".` });
     } catch (error) {
+        console.error('Error al unirse al grupo:', error);
         res.status(500).json({ ok: false, mensaje: 'Error al unirse al grupo', error: error.message });
     }
 });
@@ -453,8 +410,11 @@ app.post('/api/registro', async (req, res) => {
         res.status(500).json({ ok: false, mensaje: 'Error al registrar cuenta', error: error.message });
     }
 });
+
+// Para comprobar qué versión del código corre en Render
 app.get('/api/version', (req, res) => {
     res.json({ ok: true, version: 'grupos-fix-1' });
 });
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API SplitStudent ejecutándose en http://localhost:${PORT}`));

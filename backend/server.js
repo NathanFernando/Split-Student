@@ -178,6 +178,7 @@ app.post('/api/grupos', async (req, res) => {
             codigo_invitacion: codigo
         });
     } catch (error) {
+        console.error('Error al crear grupo:', error); 
         await conn.rollback();
         res.status(500).json({ ok: false, mensaje: 'Error al crear grupo', error: error.message });
     } finally {

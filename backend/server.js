@@ -452,6 +452,8 @@ app.post('/api/registro', async (req, res) => {
         res.status(500).json({ ok: false, mensaje: 'Error al registrar cuenta', error: error.message });
     }
 });
-
+app.get('/api/version', (req, res) => {
+    res.json({ ok: true, version: 'grupos-fix-1' });
+});
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API SplitStudent ejecutándose en http://localhost:${PORT}`));

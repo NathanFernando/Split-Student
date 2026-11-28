@@ -84,14 +84,23 @@ app.post('/api/grupos', async (req, res) => {
     }
 });
 
+function generarCodigoInvitacion(longitud = 6) {
+    const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let codigo = '';
+    for (let i = 0; i < longitud; i++) {
+        codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    }
+    return codigo;
+}
 
+// POST: Unirse a un grupo mediante código de invitación
 app.post('/api/grupos', async (req, res) => {
     const { nombre, descripcion, id_creador, miembros_nombres } = req.body;
 
-    if (!nombre || !id_creador || !Array.isArray(miembros_nombres) || miembros_nombres.length < 1) {
+    if (!nombre || !id_creador) {
         return res.status(400).json({
             ok: false,
-            mensaje: 'Se requiere nombre del grupo y al menos el creador.'
+            mensaje: 'Se requiere el nombre del grupo y el ID del creador.'
         });
     }
 
@@ -99,7 +108,20 @@ app.post('/api/grupos', async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const codigo = generarCodigoInvitacion(); // o tu función generadora de 6 caracteres
+        // Verifica que el creador exista en usuarios
+        const [creadores] = await connection.query(
+            'SELECT id_usuario FROM usuarios WHERE id_usuario = ? LIMIT 1',
+            [id_creador]
+        );
+        if (creadores.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({
+                ok: false,
+                mensaje: 'El usuario creador no existe.'
+            });
+        }
+
+        const codigo = generarCodigoInvitacion();
         const [resGrupo] = await connection.query(
             'INSERT INTO grupos (nombre_grupo, descripcion, codigo_invitacion, id_creador) VALUES (?, ?, ?, ?)',
             [nombre.trim(), (descripcion || '').trim(), codigo, id_creador]
@@ -107,38 +129,39 @@ app.post('/api/grupos', async (req, res) => {
 
         const idGrupo = resGrupo.insertId;
 
-        // Inserta al creador como admin
+        // Registra al creador como administrador del grupo
         await connection.query(
             'INSERT INTO miembros_grupo (id_grupo, id_usuario, rol) VALUES (?, ?, ?)',
             [idGrupo, id_creador, 'admin']
         );
 
-        // Procesa los demás nombres indicados
-        for (const rawNombre of miembros_nombres) {
-            const nombreLimpio = String(rawNombre || '').trim();
-            if (!nombreLimpio) continue;
+        // Si se enviaron nombres adicionales, agrega únicamente a usuarios ya registrados
+        const omitidos = [];
+        if (Array.isArray(miembros_nombres) && miembros_nombres.length > 0) {
+            for (const rawNombre of miembros_nombres) {
+                const nombreLimpio = String(rawNombre || '').trim();
+                if (!nombreLimpio) continue;
 
-            const [usuariosExistentes] = await connection.query(
-                'SELECT id_usuario FROM usuarios WHERE LOWER(nombre) = LOWER(?) LIMIT 1',
-                [nombreLimpio]
-            );
-
-            let idUsuarioMiembro;
-            if (usuariosExistentes.length > 0) {
-                idUsuarioMiembro = usuariosExistentes[0].id_usuario;
-            } else {
-                const correoInvitado = `invitado_${Date.now()}_${Math.floor(Math.random() * 10000)}@local.splitstudent`;
-                const [resUsr] = await connection.query(
-                    "INSERT INTO usuarios (nombre, correo, password_hash) VALUES (?, ?, 'invitado_local')",
-                    [nombreLimpio, correoInvitado]
+                const [usuariosExistentes] = await connection.query(
+                    'SELECT id_usuario FROM usuarios WHERE LOWER(nombre) = LOWER(?) LIMIT 1',
+                    [nombreLimpio]
                 );
-                idUsuarioMiembro = resUsr.insertId;
-            }
 
-            await connection.query(
-                'INSERT IGNORE INTO miembros_grupo (id_grupo, id_usuario, rol) VALUES (?, ?, ?)',
-                [idGrupo, idUsuarioMiembro, Number(idUsuarioMiembro) === Number(id_creador) ? 'admin' : 'invitado']
-            );
+                if (usuariosExistentes.length === 0) {
+                    omitidos.push(nombreLimpio);
+                    continue;
+                }
+
+                const idUsuarioMiembro = usuariosExistentes[0].id_usuario;
+                await connection.query(
+                    'INSERT IGNORE INTO miembros_grupo (id_grupo, id_usuario, rol) VALUES (?, ?, ?)',
+                    [
+                        idGrupo,
+                        idUsuarioMiembro,
+                        Number(idUsuarioMiembro) === Number(id_creador) ? 'admin' : 'invitado'
+                    ]
+                );
+            }
         }
 
         await connection.commit();
@@ -146,7 +169,8 @@ app.post('/api/grupos', async (req, res) => {
             ok: true,
             mensaje: 'Grupo creado correctamente.',
             id_grupo: idGrupo,
-            codigo_invitacion: codigo
+            codigo_invitacion: codigo,
+            usuarios_no_encontrados: omitidos
         });
     } catch (error) {
         await connection.rollback();

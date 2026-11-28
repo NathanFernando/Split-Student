@@ -388,19 +388,17 @@ function configurarModalesYFormularios() {
         const descripcion = document.getElementById('grupo-descripcion').value.trim();
         const miembrosTexto = document.getElementById('grupo-miembros').value.trim();
 
-        if (!nombre || !miembrosTexto) {
-            mostrarToast('Completa el nombre del grupo y los integrantes.', 'warning');
+        if (!nombre) {
+            mostrarToast('Escribe un nombre para el grupo.', 'warning');
             return;
         }
 
-        const miembros = miembrosTexto.split(',').map(m => m.trim()).filter(m => m !== '');
+        const miembros = miembrosTexto
+            ? miembrosTexto.split(',').map(m => m.trim()).filter(m => m !== '')
+            : [];
+
         if (!miembros.some(m => m.toLowerCase() === usuarioSesion.nombre.toLowerCase())) {
             miembros.unshift(usuarioSesion.nombre);
-        }
-
-        if (miembros.length < 2) {
-            mostrarToast('Un grupo compartido requiere al menos 2 integrantes.', 'warning');
-            return;
         }
 
         try {
@@ -413,7 +411,7 @@ function configurarModalesYFormularios() {
             modalGrupo.dismiss();
             await sincronizarDatosConServidor();
             renderizarTodo();
-            mostrarToast('Grupo creado y sincronizado.', 'success');
+            mostrarToast('Grupo creado. ¡Comparte el código para invitar!', 'success');
         } catch (error) {
             mostrarToast(error.message, 'danger');
         }
